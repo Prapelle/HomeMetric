@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<title>ประเมินและเปรียบเทียบราคาทรัพย์</title>
+<title>HomeMetric</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2216%22 fill=%22%23263140%22/><circle cx=%2250%22 cy=%2250%22 r=%2230%22 fill=%22none%22 stroke=%22%23a63d40%22 stroke-width=%225%22/><text x=%2250%22 y=%2260%22 font-size=%2230%22 text-anchor=%22middle%22 fill=%22%23a63d40%22 font-family=%22serif%22>ท</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -316,7 +316,7 @@
 
 <div id="login-screen">
   <div class="login-card">
-    <h1>ประเมินและเปรียบเทียบราคาทรัพย์</h1>
+    <h1>HomeMetric</h1>
     <p>กรุณาเข้าสู่ระบบด้วยบัญชี Google ที่ได้รับสิทธิ์การใช้งาน</p>
     <button class="google-btn" id="google-signin-btn" type="button">
       <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.4 29.3 35 24 35c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.6 4.9 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.2-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 15.4 18.9 12 24 12c3.1 0 5.8 1.1 8 3l6-6C34.6 4.9 29.6 3 24 3 16.3 3 9.6 7.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 45c5.5 0 10.4-1.9 14.3-5l-6.6-5.6C29.6 36 26.9 37 24 37c-5.3 0-9.7-3.6-11.3-8.4l-6.5 5C9.5 40.6 16.2 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.6 5.6C41.9 36 45 30.8 45 24c0-1.2-.1-2.4-.4-3.5z"/></svg>
@@ -334,7 +334,7 @@
 
   <div class="deed-header">
     <span class="corner-bl"></span><span class="corner-br"></span>
-    <h1 class="deed-title">ประเมินและเปรียบเทียบราคาทรัพย์</h1>
+    <h1 class="deed-title">HomeMetric</h1>
     <p class="deed-sub">คำนวณราคาประเมิน เทียบราคาขายกับราคากลาง แยกตามค่าก่อสร้าง ค่าเสื่อม และค่าที่ดิน</p>
   </div>
 
@@ -735,19 +735,21 @@ const AuthorizationModule = (function(){
     signinBtn.disabled = true;
 
     try{
+      console.log('[Auth] checking access for:', user.email);
       const authorized = await AuthorizationModule.checkAccess(user.email);
+      console.log('[Auth] result:', authorized);
       if(authorized){
         showApp(user.email);
       } else {
         await AuthModule.signOut();
         showLogin();
-        setStatus('บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้งาน กรุณาติดต่อผู้ดูแลระบบ', true);
+        setStatus('บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้งาน (' + user.email + ') กรุณาติดต่อผู้ดูแลระบบ', true);
       }
     }catch(err){
-      console.error(err);
+      console.error('[Auth] error:', err);
       await AuthModule.signOut();
       showLogin();
-      setStatus('ไม่สามารถตรวจสอบสิทธิ์ได้ในขณะนี้ กรุณาลองใหม่ภายหลัง', true);
+      setStatus('ไม่สามารถตรวจสอบสิทธิ์ได้ในขณะนี้: ' + err.message, true);
     }finally{
       signinBtn.disabled = false;
     }
