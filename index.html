@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>ประเมินและเปรียบเทียบราคาทรัพย์</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2216%22 fill=%22%23263140%22/><circle cx=%2250%22 cy=%2250%22 r=%2230%22 fill=%22none%22 stroke=%22%23a63d40%22 stroke-width=%225%22/><text x=%2250%22 y=%2260%22 font-size=%2230%22 text-anchor=%22middle%22 fill=%22%23a63d40%22 font-family=%22serif%22>ท</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<style>
+  :root{
+    --paper:#eee6d3;
+    --paper-2:#e3d9bf;
+    --paper-3:#d9cca8;
+    --ink:#26313f;
+    --ink-soft:#4d5a68;
+    --stamp:#a63d40;
+    --stamp-dark:#7e2c2e;
+    --land:#4b6e58;
+    --brass:#a9824a;
+    --line:#c3b791;
+    --good:#3f6b4f;
+    --bad:#a63d40;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      linear-gradient(var(--paper),var(--paper)),
+      repeating-linear-gradient(0deg, rgba(38,49,63,0.035) 0px, rgba(38,49,63,0.035) 1px, transparent 1px, transparent 26px),
+      repeating-linear-gradient(90deg, rgba(38,49,63,0.035) 0px, rgba(38,49,63,0.035) 1px, transparent 1px, transparent 26px);
+    color:var(--ink);
+    font-family:'Noto Sans Thai', sans-serif;
+    min-height:100vh;
+    padding: 20px 14px 80px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  /* header styled like a deed plate */
+  .deed-header{
+    position:relative;
+    border:2px solid var(--ink);
+    background:var(--paper-2);
+    padding:26px 26px 22px;
+    margin-bottom:22px;
+  }
+  .deed-header::before,.deed-header::after,
+  .deed-header .corner-br,.deed-header .corner-bl{
+    content:"";
+    position:absolute;
+    width:22px;height:22px;
+    border-color:var(--brass);
+  }
+  .deed-header::before{top:-2px;left:-2px;border-top:4px solid var(--brass);border-left:4px solid var(--brass);}
+  .deed-header::after{top:-2px;right:-2px;border-top:4px solid var(--brass);border-right:4px solid var(--brass);}
+  .deed-header .corner-bl{bottom:-2px;left:-2px;border-bottom:4px solid var(--brass);border-left:4px solid var(--brass);}
+  .deed-header .corner-br{bottom:-2px;right:-2px;border-bottom:4px solid var(--brass);border-right:4px solid var(--brass);}
+  .deed-eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    letter-spacing:.12em;
+    font-size:11px;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+    display:flex; justify-content:space-between;
+    border-bottom:1px dashed var(--line);
+    padding-bottom:8px; margin-bottom:14px;
+  }
+  .deed-title{
+    font-family:'Noto Serif Thai',serif;
+    font-weight:700;
+    font-size:clamp(22px,4vw,32px);
+    margin:0 0 4px;
+  }
+  .deed-sub{
+    color:var(--ink-soft);
+    font-size:14px;
+    margin:0;
+  }
+
+  section{
+    background:var(--paper-2);
+    border:1px solid var(--line);
+    padding:20px;
+    margin-bottom:20px;
+  }
+  h2.sec-title{
+    font-family:'Noto Serif Thai',serif;
+    font-size:18px;
+    margin:0 0 16px;
+    display:flex; align-items:center; gap:10px;
+    color:var(--ink);
+  }
+  h2.sec-title::before{
+    content:"";
+    width:8px;height:8px;
+    background:var(--stamp);
+    border-radius:50%;
+    display:inline-block;
+    flex:none;
+  }
+
+  details.settings summary{
+    cursor:pointer;
+    font-family:'Noto Serif Thai',serif;
+    font-size:15px;
+    font-weight:600;
+    padding:6px 0;
+    list-style:none;
+  }
+  details.settings summary::-webkit-details-marker{display:none;}
+  details.settings summary::before{
+    content:"▸ ";
+    color:var(--stamp);
+  }
+  details.settings[open] summary::before{content:"▾ ";}
+
+  .type-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+    gap:10px;
+    margin-top:14px;
+  }
+  .type-card{
+    background:var(--paper);
+    border:1px solid var(--line);
+    padding:10px 12px;
+  }
+  .type-card input[type=text]{font-weight:600;margin-bottom:6px;}
+  .type-card .row2{display:flex; gap:8px;}
+  .type-card .row2 label{flex:1; font-size:11px; color:var(--ink-soft);}
+  .type-card button.del-type{
+    float:right; background:none;border:none;color:var(--stamp);cursor:pointer;font-size:12px;
+  }
+
+  label{
+    display:block;
+    font-size:12px;
+    color:var(--ink-soft);
+    margin-bottom:4px;
+  }
+  input, select{
+    width:100%;
+    font-family:'Noto Sans Thai',sans-serif;
+    font-size:14px;
+    padding:8px 9px;
+    border:1px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+  }
+  input:focus, select:focus{outline:2px solid var(--brass); outline-offset:1px;}
+  input[type=number]{font-family:'JetBrains Mono',monospace;}
+
+  .form-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+    gap:12px;
+    margin-bottom:14px;
+  }
+  .field-full{grid-column:1/-1;}
+
+  button.primary{
+    background:var(--ink);
+    color:var(--paper);
+    border:none;
+    font-family:'Noto Serif Thai',serif;
+    font-weight:600;
+    font-size:14px;
+    padding:11px 22px;
+    cursor:pointer;
+    letter-spacing:.02em;
+  }
+  button.primary:hover{background:var(--stamp-dark);}
+  button.ghost{
+    background:none;
+    border:1px solid var(--ink-soft);
+    color:var(--ink-soft);
+    font-size:12px;
+    padding:6px 12px;
+    cursor:pointer;
+  }
+  button.ghost:hover{border-color:var(--stamp); color:var(--stamp);}
+
+  .sort-bar{
+    display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+    margin-bottom:14px; font-size:13px; color:var(--ink-soft);
+  }
+  .sort-bar select{width:auto;}
+
+  /* comparison cards */
+  .cards{display:flex; flex-direction:column; gap:14px;}
+  .card{
+    position:relative;
+    background:var(--paper);
+    border:1px solid var(--ink);
+    padding:16px 18px;
+    overflow:hidden;
+  }
+  .card.best{border-color:var(--stamp);}
+  .card-top{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    border-bottom:1px dashed var(--line);
+    padding-bottom:10px; margin-bottom:12px;
+    gap:10px;
+  }
+  .card-name{
+    font-family:'Noto Serif Thai',serif;
+    font-weight:700;
+    font-size:17px;
+  }
+  .card-type{font-size:12px; color:var(--ink-soft);}
+  .card-actions{display:flex; gap:6px; flex:none;}
+  .card-actions button{
+    background:none;border:1px solid var(--line);
+    color:var(--ink-soft); font-size:11px; padding:4px 8px; cursor:pointer;
+  }
+  .card-actions button:hover{border-color:var(--stamp); color:var(--stamp);}
+
+  .metric-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+    gap:10px 16px;
+  }
+  .metric{border-left:2px solid var(--line); padding-left:8px;}
+  .metric .m-label{font-size:11px; color:var(--ink-soft); margin-bottom:2px;}
+  .metric .m-value{font-family:'JetBrains Mono',monospace; font-weight:600; font-size:14px;}
+  .metric.accent{border-left-color:var(--brass);}
+  .metric.result{border-left-color:var(--ink);}
+  .metric.result .m-value{font-size:16px;}
+  .diff-pos{color:var(--bad);}
+  .diff-neg{color:var(--good);}
+
+  /* stamp seal for best value */
+  .seal{
+    position:absolute;
+    top:12px; right:14px;
+    width:78px; height:78px;
+    transform:rotate(-14deg);
+    opacity:.94;
+    pointer-events:none;
+  }
+
+  .empty-state{
+    text-align:center; padding:40px 20px; color:var(--ink-soft);
+    font-size:14px; border:1px dashed var(--line);
+  }
+
+  footer{
+    text-align:center; font-size:11px; color:var(--ink-soft);
+    margin-top:30px; font-family:'JetBrains Mono',monospace;
+    letter-spacing:.05em;
+  }
+
+  @media (max-width:520px){
+    .deed-header{padding:18px 16px;}
+    section{padding:14px;}
+  }
+
+  /* ---- auth ---- */
+  #login-screen{
+    min-height:100vh;
+    display:flex; align-items:center; justify-content:center;
+    padding:20px;
+  }
+  .login-card{
+    background:var(--paper-2);
+    border:2px solid var(--ink);
+    padding:36px 30px;
+    max-width:380px;
+    width:100%;
+    text-align:center;
+    position:relative;
+  }
+  .login-card h1{
+    font-family:'Noto Serif Thai',serif;
+    font-size:22px;
+    margin:0 0 8px;
+  }
+  .login-card p{
+    color:var(--ink-soft);
+    font-size:13px;
+    margin:0 0 22px;
+  }
+  #login-status{
+    min-height:20px;
+    font-size:13px;
+    margin-top:16px;
+    color:var(--ink-soft);
+  }
+  #login-status.error{color:var(--stamp-dark); font-weight:600;}
+  button.google-btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:10px;
+    background:var(--ink); color:var(--paper);
+    border:none; font-family:'Noto Sans Thai',sans-serif; font-weight:600;
+    font-size:14px; padding:12px 20px; cursor:pointer; width:100%;
+  }
+  button.google-btn:hover{background:var(--stamp-dark);}
+  button.google-btn:disabled{opacity:.6; cursor:default;}
+  .google-btn svg{width:18px;height:18px;flex:none;}
+
+  .user-bar{
+    display:flex; align-items:center; justify-content:flex-end;
+    gap:10px; margin-bottom:14px; font-size:12px; color:var(--ink-soft);
+  }
+  .user-bar button{
+    background:none; border:1px solid var(--ink-soft); color:var(--ink-soft);
+    font-size:11px; padding:5px 10px; cursor:pointer;
+  }
+  .user-bar button:hover{border-color:var(--stamp); color:var(--stamp);}
+
+  #app-content{display:none;}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <h1>ประเมินและเปรียบเทียบราคาทรัพย์</h1>
+    <p>กรุณาเข้าสู่ระบบด้วยบัญชี Google ที่ได้รับสิทธิ์การใช้งาน</p>
+    <button class="google-btn" id="google-signin-btn" type="button">
+      <svg viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.4 29.3 35 24 35c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l6-6C34.6 4.9 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21 21-9.4 21-21c0-1.2-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 15.4 18.9 12 24 12c3.1 0 5.8 1.1 8 3l6-6C34.6 4.9 29.6 3 24 3 16.3 3 9.6 7.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 45c5.5 0 10.4-1.9 14.3-5l-6.6-5.6C29.6 36 26.9 37 24 37c-5.3 0-9.7-3.6-11.3-8.4l-6.5 5C9.5 40.6 16.2 45 24 45z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.6 5.6C41.9 36 45 30.8 45 24c0-1.2-.1-2.4-.4-3.5z"/></svg>
+      <span>เข้าสู่ระบบด้วย Google</span>
+    </button>
+    <div id="login-status"></div>
+  </div>
+</div>
+
+<div class="wrap" id="app-content">
+  <div class="user-bar">
+    <span id="user-email"></span>
+    <button type="button" id="signout-btn">ออกจากระบบ</button>
+  </div>
+
+  <div class="deed-header">
+    <span class="corner-bl"></span><span class="corner-br"></span>
+    <h1 class="deed-title">ประเมินและเปรียบเทียบราคาทรัพย์</h1>
+    <p class="deed-sub">คำนวณราคาประเมิน เทียบราคาขายกับราคากลาง แยกตามค่าก่อสร้าง ค่าเสื่อม และค่าที่ดิน</p>
+  </div>
+
+  <section>
+    <h2 class="sec-title">เพิ่มทรัพย์เพื่อประเมิน</h2>
+    <div class="form-grid" id="form-grid">
+      <div>
+        <label>ชื่อทรัพย์ / รหัส</label>
+        <input type="text" id="f-name" placeholder="เช่น สีวลี บ้านเลขที่ 12">
+      </div>
+      <div>
+        <label>ประเภทอาคาร</label>
+        <select id="f-type"></select>
+      </div>
+      <div>
+        <label>พื้นที่อาคาร (ตร.ม.)</label>
+        <input type="number" id="f-sqm" min="0" step="0.01" placeholder="0">
+      </div>
+      <div>
+        <label>พื้นที่ที่ดิน (ตร.วา)</label>
+        <input type="number" id="f-wah" min="0" step="0.01" placeholder="0">
+      </div>
+      <div>
+        <label>ราคาขาย / ราคาตลาด (บาท)</label>
+        <input type="number" id="f-price" min="0" step="1000" placeholder="0">
+      </div>
+      <div>
+        <label>อายุอาคาร (ปี)</label>
+        <input type="number" id="f-age" min="0" step="1" placeholder="0">
+      </div>
+      <div>
+        <label>ราคาที่ดินต่อวา (บาท)</label>
+        <input type="number" id="f-landrate" min="0" step="100" placeholder="0">
+      </div>
+      <div>
+        <label>ค่าซ่อม/รีโนเวท (ถ้ามี)</label>
+        <input type="number" id="f-reno" min="0" step="1000" placeholder="0">
+      </div>
+    </div>
+    <button class="primary" id="add-btn" type="button">+ เพิ่มลงตารางเปรียบเทียบ</button>
+  </section>
+
+  <section>
+    <h2 class="sec-title">ตารางเปรียบเทียบ</h2>
+    <div class="sort-bar">
+      <span>เรียงตาม</span>
+      <select id="sort-select">
+        <option value="diffAsc">ส่วนต่าง (ราคาขาย − ราคาประเมิน) น้อย→มาก</option>
+        <option value="diffDesc">ส่วนต่าง มาก→น้อย</option>
+        <option value="pricePerWahAsc">ราคา/ตร.วา ต่ำ→สูง</option>
+        <option value="pricePerSqmAsc">ราคา/ตร.ม. ต่ำ→สูง</option>
+        <option value="newest">เพิ่มล่าสุดก่อน</option>
+      </select>
+      <span style="margin-left:auto;">🏷 = ต่ำกว่าราคาประเมินมากที่สุด (คุ้มค่าที่สุด)</span>
+    </div>
+    <div class="cards" id="cards"></div>
+    <div class="empty-state" id="empty-state">ยังไม่มีทรัพย์ในตาราง — เพิ่มรายการด้านบนเพื่อเริ่มเปรียบเทียบ</div>
+  </section>
+
+  <footer>ราคากลางสิ่งก่อสร้างและอัตราค่าเสื่อมเป็นค่าประมาณ ควรปรับตามข้อมูลกรมธนารักษ์ล่าสุด</footer>
+</div>
+
+<script>
+window.PropertyApp = (function(){
+  // ประเภทอาคารคงที่ตามตารางกรมธนารักษ์ (Sheet3) — ราคากลาง/ตรม (บาท) และอัตราค่าเสื่อม %/ปี
+  const types = [
+    {id:'t01', name:'บ้านเดี่ยวไม้ชั้นเดียว', rate:12800, dep:5},
+    {id:'t02', name:'บ้านเดี่ยวไม้ 2 ชั้น', rate:12300, dep:5},
+    {id:'t03', name:'บ้านเดี่ยวไม้ใต้ถุนสูง (ประเมินเฉพาะชั้นบน)', rate:14400, dep:5},
+    {id:'t04', name:'บ้านครึ่งตึกครึ่งไม้', rate:11500, dep:4},
+    {id:'t05', name:'บ้านเดี่ยวตึกชั้นเดียว', rate:14000, dep:2},
+    {id:'t06', name:'บ้านเดี่ยวตึก 2 ชั้น (ระบบ precast)', rate:11800, dep:2},
+    {id:'t07', name:'บ้านเดี่ยวตึก 2-3 ชั้น', rate:13200, dep:2},
+    {id:'t08', name:'บ้านแฝดชั้นเดียว', rate:12400, dep:2},
+    {id:'t09', name:'บ้านแฝด 2-3 ชั้น', rate:11300, dep:2},
+    {id:'t10', name:'ทาวน์เฮาส์ชั้นเดียว', rate:10300, dep:2},
+    {id:'t11', name:'ทาวน์เฮาส์ 2 ชั้น กว้าง 5-6 ม. (ระบบ precast)', rate:10400, dep:2},
+    {id:'t12', name:'ทาวน์เฮาส์ 2-3 ชั้น กว้าง 4 เมตร', rate:10100, dep:2},
+    {id:'t13', name:'ทาวน์เฮาส์ 2-3 ชั้น กว้าง 5-6 ม. ไม่มีเสากลาง', rate:12000, dep:2},
+    {id:'t14', name:'ทาวน์เฮาส์ 2-3 ชั้น กว้าง 5-6 ม. มีเสากลาง', rate:10400, dep:2},
+    {id:'t15', name:'ห้องแถวไม้ 1-2 ชั้น', rate:8000, dep:5},
+    {id:'t16', name:'อาคารพาณิชย์ชั้นเดียว', rate:7300, dep:2},
+    {id:'t17', name:'อาคารพาณิชย์ 2-3 ชั้น', rate:9000, dep:2},
+    {id:'t18', name:'อาคารพาณิชย์ 4-5 ชั้น', rate:8600, dep:2},
+    {id:'t19', name:'อาคารพักอาศัยไม่เกิน 5 ชั้น (ไม่มีลิฟท์)', rate:14300, dep:2},
+    {id:'t20', name:'อาคารพักอาศัย 6-15 ชั้น', rate:18600, dep:2},
+    {id:'t21', name:'อาคารพักอาศัย 16-25 ชั้น', rate:23600, dep:2},
+    {id:'t22', name:'อาคารพักอาศัย 26-35 ชั้น', rate:26700, dep:2},
+    {id:'t23', name:'อาคารธุรกิจสูง < 23 เมตร', rate:18800, dep:2},
+    {id:'t24', name:'อาคารธุรกิจสูง > 23 เมตร แต่ไม่เกิน 20 ชั้น', rate:21900, dep:2},
+    {id:'t25', name:'อาคารธุรกิจ 31-35 ชั้น', rate:28400, dep:2},
+    {id:'t26', name:'อาคารสรรพสินค้าที่สูงไม่เกิน 3 ชั้น', rate:18200, dep:2},
+    {id:'t27', name:'ศูนย์การค้าสูง 4 ชั้นขึ้นไป', rate:25200, dep:2},
+    {id:'t28', name:'อาคารจอดรถ ส่วนบนดิน', rate:11900, dep:2},
+    {id:'t29', name:'อาคารจอดรถ ส่วนใต้ดิน (1-2 ชั้น)', rate:19500, dep:2},
+    {id:'t30', name:'อาคารจอดรถ ส่วนใต้ดิน (3-4 ชั้น)', rate:31100, dep:2},
+    {id:'t31', name:'โกดัง - โรงงาน ทั่วไป', rate:8600, dep:3},
+    {id:'t32', name:'ห้องเย็นอุตสาหกรรม (0 ถึง 18 องศาเซลเซียส) ไม่รวมอุปกรณ์ทำความเย็น', rate:22000, dep:5},
+    {id:'t33', name:'อาคารสโมสร (โครงการจัดสรรที่อยู่อาศัย)', rate:16600, dep:2},
+    {id:'t34', name:'ถังเก็บน้ำสูง (ถังแชมเปญ 15-20-30 ลบ.ม.)/ชุด ไม่รวมอุปกรณ์สูบน้ำ', rate:277300, dep:5},
+    {id:'t35', name:'บ้านน็อคดาวน์ บ้านสำเร็จรูป', rate:13200, dep:5},
+    {id:'t36', name:'โรงพยาบาลเอกชน (สูง 1-8 ชั้น)', rate:27800, dep:2},
+    {id:'t37', name:'สถานีบริการน้ำมัน', rate:6000, dep:3},
+    {id:'t38', name:'โชว์รูมรถยนต์', rate:10800, dep:3},
+    {id:'t39', name:'โรงเรียนเอกชน (สูง 1-4 ชั้น)', rate:11800, dep:2},
+    {id:'t40', name:'ภัตตาคาร/ร้านอาหาร', rate:10800, dep:2},
+    {id:'t41', name:'อาคารไม้เรือนไทย (ไม้สักหรือเทียบเท่า)', rate:38700, dep:2},
+    {id:'t42', name:'ตลาดสด', rate:4400, dep:3},
+    {id:'t43', name:'อู่ซ่อมรถยนต์', rate:6000, dep:3},
+    {id:'t44', name:'ห้องน้ำรวม', rate:16600, dep:3},
+    {id:'t45', name:'โรงมหรสพ', rate:11200, dep:3},
+    {id:'t46', name:'สนามเทนนิส : 1 สนาม', rate:1912000, dep:3},
+    {id:'t47', name:'สนามเทนนิส : 3 สนามติดกัน', rate:1588000, dep:3},
+    {id:'t48', name:'ถนนคอนกรีต (หมู่บ้าน โครงการจัดสรร)', rate:900, dep:3},
+    {id:'t49', name:'ถนนลาดยาง', rate:500, dep:3},
+    {id:'t50', name:'ถนนคอนกรีต', rate:600, dep:3},
+    {id:'t51', name:'รั้วอิฐบล็อค (แบบไม่มีกำแพงกั้นดิน)', rate:1300, dep:3},
+    {id:'t52', name:'โรงเลี้ยงสัตว์ (ไก่ สุกร ระบบมืด)', rate:3000, dep:3},
+    {id:'t53', name:'ลานโล่งหลังคาคลุม (ที่จอดรถ)', rate:1600, dep:3},
+  ];
+
+  let items = [];
+
+  function fmt(n){
+    if(n===null||n===undefined||isNaN(n)) return '-';
+    return Math.round(n).toLocaleString('th-TH');
+  }
+  function fmt1(n){
+    if(n===null||n===undefined||isNaN(n)) return '-';
+    return n.toLocaleString('th-TH',{maximumFractionDigits:1});
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ---- add-item form ----
+  const fType = document.getElementById('f-type');
+  function renderTypeSelect(){
+    const cur = fType.value;
+    fType.innerHTML = types.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+    if(types.some(t=>t.id===cur)) fType.value = cur;
+  }
+
+  document.getElementById('add-btn').addEventListener('click', ()=>{
+    const name = document.getElementById('f-name').value.trim() || 'ทรัพย์ไม่มีชื่อ';
+    const typeId = fType.value;
+    const sqm = parseFloat(document.getElementById('f-sqm').value)||0;
+    const wah = parseFloat(document.getElementById('f-wah').value)||0;
+    const price = parseFloat(document.getElementById('f-price').value)||0;
+    const age = parseFloat(document.getElementById('f-age').value)||0;
+    const landRate = parseFloat(document.getElementById('f-landrate').value)||0;
+    const reno = parseFloat(document.getElementById('f-reno').value)||0;
+
+    if(sqm<=0 && wah<=0){ alert('กรุณากรอกพื้นที่อาคารหรือพื้นที่ที่ดินอย่างน้อยหนึ่งค่า'); return; }
+
+    items.push({
+      id:'i'+Date.now(), name, typeId, sqm, wah, price, age, landRate, reno,
+      created: Date.now()
+    });
+    ['f-name','f-sqm','f-wah','f-price','f-age','f-landrate','f-reno'].forEach(id=>document.getElementById(id).value='');
+    renderCards();
+  });
+
+  // ---- calculations ----
+  function calc(item){
+    const type = types.find(t=>t.id===item.typeId) || types[0];
+    const pricePerSqm = item.sqm>0 ? item.price/item.sqm : null;
+    const pricePerWah = item.wah>0 ? item.price/item.wah : null;
+    const constructionBase = item.sqm * (type ? type.rate : 0);
+    const depRate = Math.min((type?type.dep:0) * item.age, 80); // cap 80%
+    const depValue = constructionBase * (depRate/100);
+    const landValue = item.wah * item.landRate;
+    const buildingValueNet = constructionBase - depValue;
+    const appraised = buildingValueNet + landValue;
+    const diff = item.price - appraised; // positive = priced above appraisal
+    return {type, pricePerSqm, pricePerWah, constructionBase, depRate, depValue, landValue, buildingValueNet, appraised, diff};
+  }
+
+  // ---- render cards ----
+  const cardsEl = document.getElementById('cards');
+  const emptyEl = document.getElementById('empty-state');
+  const sortSelect = document.getElementById('sort-select');
+  sortSelect.addEventListener('change', renderCards);
+
+  function sortedItems(){
+    const withCalc = items.map(it=>({it, c:calc(it)}));
+    const mode = sortSelect.value;
+    withCalc.sort((a,b)=>{
+      if(mode==='diffAsc') return (a.c.diff)-(b.c.diff);
+      if(mode==='diffDesc') return (b.c.diff)-(a.c.diff);
+      if(mode==='pricePerWahAsc') return (a.c.pricePerWah??Infinity)-(b.c.pricePerWah??Infinity);
+      if(mode==='pricePerSqmAsc') return (a.c.pricePerSqm??Infinity)-(b.c.pricePerSqm??Infinity);
+      if(mode==='newest') return b.it.created-a.it.created;
+      return 0;
+    });
+    return withCalc;
+  }
+
+  function sealSvg(){
+    return `
+    <svg class="seal" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="var(--stamp)" stroke-width="3"/>
+      <circle cx="50" cy="50" r="38" fill="none" stroke="var(--stamp)" stroke-width="1.5"/>
+      <path id="seal-arc-top" d="M 14 50 A 36 36 0 0 1 86 50" fill="none"/>
+      <text font-family="'Noto Serif Thai',serif" font-size="10.5" fill="var(--stamp)" font-weight="700">
+        <textPath href="#seal-arc-top" startOffset="50%" text-anchor="middle">ราคาคุ้มค่าที่สุด</textPath>
+      </text>
+      <text x="50" y="58" font-family="'Noto Serif Thai',serif" font-size="15" fill="var(--stamp)" font-weight="700" text-anchor="middle">ต่ำกว่า</text>
+      <text x="50" y="74" font-family="'Noto Serif Thai',serif" font-size="9" fill="var(--stamp)" text-anchor="middle">ราคาประเมิน</text>
+    </svg>`;
+  }
+
+  function renderCards(){
+    const list = sortedItems();
+    cardsEl.innerHTML='';
+    emptyEl.style.display = list.length? 'none':'block';
+    if(!list.length) return;
+
+    // best = most negative diff (priced most below appraisal) among items that have both price and appraised>0
+    let bestId = null, bestDiff = Infinity;
+    list.forEach(({it,c})=>{
+      if(it.price>0 && c.appraised>0 && c.diff < bestDiff){ bestDiff = c.diff; bestId = it.id; }
+    });
+
+    list.forEach(({it,c})=>{
+      const isBest = it.id===bestId && bestDiff < 0;
+      const card = document.createElement('div');
+      card.className = 'card'+(isBest?' best':'');
+      const diffClass = c.diff>0 ? 'diff-pos' : (c.diff<0 ? 'diff-neg' : '');
+      const diffLabel = c.diff>0 ? 'สูงกว่าราคาประเมิน' : (c.diff<0 ? 'ต่ำกว่าราคาประเมิน' : 'เท่ากับราคาประเมิน');
+
+      card.innerHTML = `
+        ${isBest? sealSvg() : ''}
+        <div class="card-top">
+          <div>
+            <div class="card-name">${escapeHtml(it.name)}</div>
+            <div class="card-type">${escapeHtml(c.type? c.type.name:'-')} · อายุ ${fmt1(it.age)} ปี</div>
+          </div>
+          <div class="card-actions">
+            <button type="button" data-act="edit">แก้ไข</button>
+            <button type="button" data-act="del">ลบ</button>
+          </div>
+        </div>
+        <div class="metric-grid">
+          <div class="metric"><div class="m-label">พื้นที่อาคาร</div><div class="m-value">${fmt1(it.sqm)} ตรม.</div></div>
+          <div class="metric"><div class="m-label">พื้นที่ที่ดิน</div><div class="m-value">${fmt1(it.wah)} ตรว.</div></div>
+          <div class="metric"><div class="m-label">ราคาขาย</div><div class="m-value">฿${fmt(it.price)}</div></div>
+          <div class="metric"><div class="m-label">ราคา/ตรม.</div><div class="m-value">฿${fmt(c.pricePerSqm)}</div></div>
+          <div class="metric"><div class="m-label">ราคา/ตรว.</div><div class="m-value">฿${fmt(c.pricePerWah)}</div></div>
+          <div class="metric accent"><div class="m-label">ราคากลางสิ่งก่อสร้าง</div><div class="m-value">฿${fmt(c.constructionBase)}</div></div>
+          <div class="metric accent"><div class="m-label">ค่าเสื่อม (${fmt1(c.depRate)}%)</div><div class="m-value">฿${fmt(c.depValue)}</div></div>
+          <div class="metric accent"><div class="m-label">ค่าที่ดิน</div><div class="m-value">฿${fmt(c.landValue)}</div></div>
+          ${it.reno>0? `<div class="metric"><div class="m-label">ค่าซ่อม/รีโนเวท</div><div class="m-value">฿${fmt(it.reno)}</div></div>` : ''}
+          <div class="metric result"><div class="m-label">ราคาประเมิน</div><div class="m-value">฿${fmt(c.appraised)}</div></div>
+          <div class="metric result"><div class="m-label">ส่วนต่าง (${diffLabel})</div><div class="m-value ${diffClass}">฿${fmt(Math.abs(c.diff))}</div></div>
+        </div>
+      `;
+      card.querySelector('[data-act=del]').addEventListener('click', ()=>{
+        if(confirm('ลบทรัพย์นี้ออกจากตาราง?')){
+          items = items.filter(x=>x.id!==it.id);
+          renderCards();
+        }
+      });
+      card.querySelector('[data-act=edit]').addEventListener('click', ()=>{
+        document.getElementById('f-name').value = it.name;
+        fType.value = it.typeId;
+        document.getElementById('f-sqm').value = it.sqm||'';
+        document.getElementById('f-wah').value = it.wah||'';
+        document.getElementById('f-price').value = it.price||'';
+        document.getElementById('f-age').value = it.age||'';
+        document.getElementById('f-landrate').value = it.landRate||'';
+        document.getElementById('f-reno').value = it.reno||'';
+        items = items.filter(x=>x.id!==it.id);
+        renderCards();
+        document.getElementById('form-grid').scrollIntoView({behavior:'smooth', block:'center'});
+      });
+      cardsEl.appendChild(card);
+    });
+  }
+
+  function init(){
+    renderTypeSelect();
+    renderCards();
+  }
+
+  return { init };
+})();
+</script>
+
+<script>
+/* =========================================================================
+   AUTH MODULE — Firebase Authentication (Google Sign-in)
+   หน้าที่: จัดการล็อกอิน/ล็อกเอาต์เท่านั้น ไม่ตัดสินใจเรื่องสิทธิ์การใช้งาน
+   ========================================================================= */
+const AuthModule = (function(){
+  // TODO: ใส่ค่า Firebase config ของโปรเจกต์คุณ (Firebase Console > Project settings)
+  const firebaseConfig = {
+    apiKey: "AIzaSyAUcy5ZQJV5y5jaohfHZ_u9h5IbVA3B0Cc",
+    authDomain: "baanprompt-745c9.firebaseapp.com",
+    projectId: "baanprompt-745c9",
+    storageBucket: "baanprompt-745c9.firebasestorage.app",
+    messagingSenderId: "308770747700",
+    appId: "1:308770747700:web:06869af75bbe6403246161",
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const provider = new firebase.auth.GoogleAuthProvider();
+
+  function signIn(){
+    return auth.signInWithPopup(provider);
+  }
+  function signOut(){
+    return auth.signOut();
+  }
+  function onChange(callback){
+    auth.onAuthStateChanged(callback);
+  }
+
+  return { signIn, signOut, onChange };
+})();
+
+/* =========================================================================
+   AUTHORIZATION MODULE — ตรวจสิทธิ์ผ่าน Google Apps Script Web API
+   หน้าที่: ถามภายนอก (Apps Script) ว่าอีเมลนี้มีสิทธิ์ใช้งานหรือไม่
+   Frontend ไม่อ่าน Google Sheets โดยตรงเด็ดขาด
+   ========================================================================= */
+const AuthorizationModule = (function(){
+  // TODO: ใส่ URL ของ Apps Script Web App ที่ deploy แล้ว (ลงท้ายด้วย /exec)
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwKHA8vEuqeQ5VrPlnqGb_oURN1rd5pjliGw0D7ssGy5Qb6LU6EDiCK49cjYkAan9KZow/exec";
+
+  async function checkAccess(email){
+    const url = APPS_SCRIPT_URL + "?email=" + encodeURIComponent(email);
+    const res = await fetch(url, { method: "GET" });
+    if(!res.ok) throw new Error("Authorization API error: " + res.status);
+    const data = await res.json();
+    // คาดหวังรูปแบบ: { authorized: true|false }
+    return !!data.authorized;
+  }
+
+  return { checkAccess };
+})();
+
+/* =========================================================================
+   APP BOOTSTRAP — เชื่อม Auth + Authorization เข้ากับ UI
+   ========================================================================= */
+(function(){
+  const loginScreen = document.getElementById('login-screen');
+  const appContent = document.getElementById('app-content');
+  const loginStatus = document.getElementById('login-status');
+  const signinBtn = document.getElementById('google-signin-btn');
+  const signoutBtn = document.getElementById('signout-btn');
+  const userEmailEl = document.getElementById('user-email');
+
+  let appInitialized = false;
+
+  function setStatus(msg, isError){
+    loginStatus.textContent = msg || '';
+    loginStatus.className = isError ? 'error' : '';
+  }
+
+  function showLogin(){
+    loginScreen.style.display = 'flex';
+    appContent.style.display = 'none';
+  }
+  function showApp(email){
+    loginScreen.style.display = 'none';
+    appContent.style.display = 'block';
+    userEmailEl.textContent = email;
+    if(!appInitialized){
+      window.PropertyApp.init();
+      appInitialized = true;
+    }
+  }
+
+  signinBtn.addEventListener('click', ()=>{
+    signinBtn.disabled = true;
+    setStatus('กำลังเข้าสู่ระบบ...');
+    AuthModule.signIn().catch(err=>{
+      console.error(err);
+      setStatus('เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่', true);
+    }).finally(()=>{ signinBtn.disabled = false; });
+  });
+
+  signoutBtn.addEventListener('click', ()=>{
+    AuthModule.signOut();
+  });
+
+  AuthModule.onChange(async (user)=>{
+    if(!user){
+      showLogin();
+      setStatus('');
+      return;
+    }
+
+    setStatus('กำลังตรวจสอบสิทธิ์การใช้งาน...');
+    signinBtn.disabled = true;
+
+    try{
+      const authorized = await AuthorizationModule.checkAccess(user.email);
+      if(authorized){
+        showApp(user.email);
+      } else {
+        await AuthModule.signOut();
+        showLogin();
+        setStatus('บัญชีนี้ยังไม่ได้รับสิทธิ์ใช้งาน กรุณาติดต่อผู้ดูแลระบบ', true);
+      }
+    }catch(err){
+      console.error(err);
+      await AuthModule.signOut();
+      showLogin();
+      setStatus('ไม่สามารถตรวจสอบสิทธิ์ได้ในขณะนี้ กรุณาลองใหม่ภายหลัง', true);
+    }finally{
+      signinBtn.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>
