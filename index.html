@@ -31,7 +31,10 @@
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
-    background:#38ad52;
+    background:
+      linear-gradient(var(--paper),var(--paper)),
+      repeating-linear-gradient(0deg, rgba(38,49,63,0.035) 0px, rgba(38,49,63,0.035) 1px, transparent 1px, transparent 26px),
+      repeating-linear-gradient(90deg, rgba(38,49,63,0.035) 0px, rgba(38,49,63,0.035) 1px, transparent 1px, transparent 26px);
     color:var(--ink);
     font-family:'Noto Sans Thai', sans-serif;
     min-height:100vh;
@@ -311,6 +314,70 @@
   .user-bar button:hover{border-color:var(--stamp); color:var(--stamp);}
 
   #app-content{display:none;}
+
+  .menu-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+  }
+  @media (max-width:560px){ .menu-grid{grid-template-columns:1fr;} }
+  .menu-card{
+    display:flex; flex-direction:column; gap:8px;
+    text-align:left;
+    background:var(--paper-2);
+    border:2px solid var(--ink);
+    padding:22px 20px;
+    cursor:pointer;
+    font-family:inherit;
+    color:var(--ink);
+  }
+  .menu-card:hover{border-color:var(--stamp); background:var(--paper-3);}
+  .menu-card-title{
+    font-family:'Noto Serif Thai',serif;
+    font-weight:700;
+    font-size:19px;
+  }
+  .menu-card-desc{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    line-height:1.5;
+  }
+  .back-btn{
+    background:none; border:1px solid var(--ink-soft); color:var(--ink-soft);
+    font-family:inherit; font-size:12px; padding:7px 14px;
+    cursor:pointer; margin-bottom:14px;
+  }
+  .back-btn:hover{border-color:var(--stamp); color:var(--stamp);}
+
+  .lt-result{
+    display:grid;
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+  }
+  .lt-row{
+    display:flex; justify-content:space-between; gap:12px;
+    background:var(--paper);
+    padding:10px 14px;
+    font-size:13.5px;
+  }
+  .lt-row.total{
+    background:var(--paper-2);
+    font-weight:700;
+    font-size:15px;
+  }
+  .lt-row.sub{
+    padding-left:26px;
+    color:var(--ink-soft);
+    font-size:12.5px;
+  }
+  .lt-row .lt-val{font-family:'JetBrains Mono',monospace;}
+  .lt-note{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    line-height:1.6;
+    margin-top:10px;
+  }
 </style>
 </head>
 <body>
@@ -333,70 +400,139 @@
     <button type="button" id="signout-btn">ออกจากระบบ</button>
   </div>
 
-  <div class="deed-header">
-    <span class="corner-bl"></span><span class="corner-br"></span>
-    <h1 class="deed-title">HomeMetric</h1>
-    <p class="deed-sub">คำนวณราคาประเมิน เทียบราคาขายกับราคากลาง แยกตามค่าก่อสร้าง ค่าเสื่อม และค่าที่ดิน</p>
+  <div id="view-menu">
+    <div class="deed-header">
+      <span class="corner-bl"></span><span class="corner-br"></span>
+      <h1 class="deed-title">HomeMetric</h1>
+      <p class="deed-sub">เลือกเครื่องมือที่ต้องการใช้งาน</p>
+    </div>
+    <section>
+      <div class="menu-grid">
+        <button class="menu-card" type="button" data-view="appraisal">
+          <span class="menu-card-title">คำนวณราคาทรัพย์</span>
+          <span class="menu-card-desc">คำนวณราคาประเมิน เทียบราคาขายกับราคากลาง แยกตามค่าก่อสร้าง ค่าเสื่อม และค่าที่ดิน</span>
+        </button>
+        <button class="menu-card" type="button" data-view="landtax">
+          <span class="menu-card-title">คำนวณภาษีที่ดิน</span>
+          <span class="menu-card-desc">ค่าธรรมเนียมโอน ภาษีธุรกิจเฉพาะ/อากรแสตมป์ ค่าจดจำนอง และค่านายหน้า เมื่อซื้อขายอสังหาริมทรัพย์</span>
+        </button>
+      </div>
+    </section>
   </div>
 
-  <section>
-    <h2 class="sec-title">เพิ่มทรัพย์เพื่อประเมิน</h2>
-    <div class="form-grid" id="form-grid">
-      <div>
-        <label>ชื่อทรัพย์ / รหัส</label>
-        <input type="text" id="f-name" placeholder="เช่น สีวลี บ้านเลขที่ 12">
-      </div>
-      <div>
-        <label>ประเภทอาคาร</label>
-        <select id="f-type"></select>
-      </div>
-      <div>
-        <label>พื้นที่อาคาร (ตร.ม.)</label>
-        <input type="number" id="f-sqm" min="0" step="0.01" placeholder="0">
-      </div>
-      <div>
-        <label>พื้นที่ที่ดิน (ตร.วา)</label>
-        <input type="number" id="f-wah" min="0" step="0.01" placeholder="0">
-      </div>
-      <div>
-        <label>ราคาขาย / ราคาตลาด (บาท)</label>
-        <input type="number" id="f-price" min="0" step="1000" placeholder="0">
-      </div>
-      <div>
-        <label>อายุอาคาร (ปี)</label>
-        <input type="number" id="f-age" min="0" step="1" placeholder="0">
-      </div>
-      <div>
-        <label>ราคาที่ดินต่อวา (บาท)</label>
-        <input type="number" id="f-landrate" min="0" step="100" placeholder="0">
-      </div>
-      <div>
-        <label>ค่าซ่อม/รีโนเวท (ถ้ามี)</label>
-        <input type="number" id="f-reno" min="0" step="1000" placeholder="0">
-      </div>
+  <div id="view-appraisal" class="view" style="display:none;">
+    <button class="back-btn" type="button" data-back>← กลับเมนูหลัก</button>
+    <div class="deed-header">
+      <span class="corner-bl"></span><span class="corner-br"></span>
+      <h1 class="deed-title">คำนวณราคาทรัพย์</h1>
+      <p class="deed-sub">คำนวณราคาประเมิน เทียบราคาขายกับราคากลาง แยกตามค่าก่อสร้าง ค่าเสื่อม และค่าที่ดิน</p>
     </div>
-    <button class="primary" id="add-btn" type="button">+ เพิ่มลงตารางเปรียบเทียบ</button>
-  </section>
 
-  <section>
-    <h2 class="sec-title">ตารางเปรียบเทียบ</h2>
-    <div class="sort-bar">
-      <span>เรียงตาม</span>
-      <select id="sort-select">
-        <option value="diffAsc">ส่วนต่าง (ราคาขาย − ราคาประเมิน) น้อย→มาก</option>
-        <option value="diffDesc">ส่วนต่าง มาก→น้อย</option>
-        <option value="pricePerWahAsc">ราคา/ตร.วา ต่ำ→สูง</option>
-        <option value="pricePerSqmAsc">ราคา/ตร.ม. ต่ำ→สูง</option>
-        <option value="newest">เพิ่มล่าสุดก่อน</option>
-      </select>
-      <span style="margin-left:auto;">🏷 = ต่ำกว่าราคาประเมินมากที่สุด (คุ้มค่าที่สุด)</span>
+    <section>
+      <h2 class="sec-title">เพิ่มทรัพย์เพื่อประเมิน</h2>
+      <div class="form-grid" id="form-grid">
+        <div>
+          <label>ชื่อทรัพย์ / รหัส</label>
+          <input type="text" id="f-name" placeholder="เช่น สีวลี บ้านเลขที่ 12">
+        </div>
+        <div>
+          <label>ประเภทอาคาร</label>
+          <select id="f-type"></select>
+        </div>
+        <div>
+          <label>พื้นที่อาคาร (ตร.ม.)</label>
+          <input type="number" id="f-sqm" min="0" step="0.01" placeholder="0">
+        </div>
+        <div>
+          <label>พื้นที่ที่ดิน (ตร.วา)</label>
+          <input type="number" id="f-wah" min="0" step="0.01" placeholder="0">
+        </div>
+        <div>
+          <label>ราคาขาย / ราคาตลาด (บาท)</label>
+          <input type="number" id="f-price" min="0" step="1000" placeholder="0">
+        </div>
+        <div>
+          <label>อายุอาคาร (ปี)</label>
+          <input type="number" id="f-age" min="0" step="1" placeholder="0">
+        </div>
+        <div>
+          <label>ราคาที่ดินต่อวา (บาท)</label>
+          <input type="number" id="f-landrate" min="0" step="100" placeholder="0">
+        </div>
+        <div>
+          <label>ค่าซ่อม/รีโนเวท (ถ้ามี)</label>
+          <input type="number" id="f-reno" min="0" step="1000" placeholder="0">
+        </div>
+      </div>
+      <button class="primary" id="add-btn" type="button">+ เพิ่มลงตารางเปรียบเทียบ</button>
+    </section>
+
+    <section>
+      <h2 class="sec-title">ตารางเปรียบเทียบ</h2>
+      <div class="sort-bar">
+        <span>เรียงตาม</span>
+        <select id="sort-select">
+          <option value="diffAsc">ส่วนต่าง (ราคาขาย − ราคาประเมิน) น้อย→มาก</option>
+          <option value="diffDesc">ส่วนต่าง มาก→น้อย</option>
+          <option value="pricePerWahAsc">ราคา/ตร.วา ต่ำ→สูง</option>
+          <option value="pricePerSqmAsc">ราคา/ตร.ม. ต่ำ→สูง</option>
+          <option value="newest">เพิ่มล่าสุดก่อน</option>
+        </select>
+        <span style="margin-left:auto;">🏷 = ต่ำกว่าราคาประเมินมากที่สุด (คุ้มค่าที่สุด)</span>
+      </div>
+      <div class="cards" id="cards"></div>
+      <div class="empty-state" id="empty-state">ยังไม่มีทรัพย์ในตาราง — เพิ่มรายการด้านบนเพื่อเริ่มเปรียบเทียบ</div>
+    </section>
+
+    <footer>ราคากลางสิ่งก่อสร้างและอัตราค่าเสื่อมเป็นค่าประมาณ ควรปรับตามข้อมูลกรมธนารักษ์ล่าสุด</footer>
+  </div>
+
+  <div id="view-landtax" class="view" style="display:none;">
+    <button class="back-btn" type="button" data-back>← กลับเมนูหลัก</button>
+    <div class="deed-header">
+      <span class="corner-bl"></span><span class="corner-br"></span>
+      <h1 class="deed-title">คำนวณภาษีที่ดิน</h1>
+      <p class="deed-sub">ค่าธรรมเนียมโอน ภาษีธุรกิจเฉพาะ/อากรแสตมป์ ค่าจดจำนอง และค่านายหน้า เมื่อซื้อขายอสังหาริมทรัพย์</p>
     </div>
-    <div class="cards" id="cards"></div>
-    <div class="empty-state" id="empty-state">ยังไม่มีทรัพย์ในตาราง — เพิ่มรายการด้านบนเพื่อเริ่มเปรียบเทียบ</div>
-  </section>
 
-  <footer>ราคากลางสิ่งก่อสร้างและอัตราค่าเสื่อมเป็นค่าประมาณ ควรปรับตามข้อมูลกรมธนารักษ์ล่าสุด</footer>
+    <section>
+      <h2 class="sec-title">ข้อมูลทรัพย์และการซื้อขาย</h2>
+      <div class="form-grid" id="lt-form-grid">
+        <div>
+          <label>ราคาประเมินราชการ (บาท/ตร.ม.)</label>
+          <input type="number" id="lt-rate" min="0" step="100" placeholder="0">
+        </div>
+        <div>
+          <label>พื้นที่ (ตร.ม.)</label>
+          <input type="number" id="lt-area" min="0" step="0.01" placeholder="0">
+        </div>
+        <div>
+          <label>ราคาซื้อขาย (บาท)</label>
+          <input type="number" id="lt-saleprice" min="0" step="1000" placeholder="0">
+        </div>
+        <div>
+          <label>ระยะเวลาถือครอง (ปี)</label>
+          <input type="number" id="lt-years" min="0" step="0.1" placeholder="0">
+        </div>
+        <div>
+          <label>วงเงินจำนอง (บาท, ถ้ามี)</label>
+          <input type="number" id="lt-mortgage" min="0" step="1000" placeholder="0">
+        </div>
+        <div>
+          <label>ค่านายหน้า (%)</label>
+          <input type="number" id="lt-broker-rate" min="0" step="0.1" value="3">
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="sec-title">สรุปค่าใช้จ่าย</h2>
+      <div class="lt-result" id="lt-result"></div>
+      <p class="lt-note">* ภาษีธุรกิจเฉพาะ (3.3%) เก็บเมื่อถือครองไม่ถึง 5 ปี หากถือครองตั้งแต่ 5 ปีขึ้นไป จะเสียอากรแสตมป์ (0.5%) แทน โดยคำนวณจาก "ราคาที่ใช้" ซึ่งคือราคาที่สูงกว่าระหว่างราคาประเมินราชการกับราคาซื้อขาย ค่าธรรมเนียมโอน (2%) แบ่งจ่ายฝ่ายละครึ่ง ส่วนภาษี/อากร ค่าจดจำนอง ผู้ซื้อเป็นผู้รับผิดชอบทั้งหมดตามธรรมเนียมทั่วไป (สามารถต่อรองเปลี่ยนแปลงได้)</p>
+    </section>
+  </div>
 </div>
+
 
 <script>
 window.PropertyApp = (function(){
@@ -628,6 +764,136 @@ window.PropertyApp = (function(){
 
 <script>
 /* =========================================================================
+   LAND TAX MODULE — คำนวณค่าธรรมเนียมโอน / ภาษีธุรกิจเฉพาะ-อากรแสตมป์ /
+                     ค่าจดจำนอง / ค่านายหน้า เมื่อซื้อขายอสังหาริมทรัพย์
+   อ้างอิงโครงสร้างการคำนวณจากตารางคำนวณภาษีที่ดินที่ให้มา
+   ========================================================================= */
+window.LandTaxApp = (function(){
+  const RATE_TRANSFER = 0.02;      // ค่าธรรมเนียมโอน 2%
+  const RATE_SBT = 0.033;          // ภาษีธุรกิจเฉพาะ 3.3% (ถือครอง < 5 ปี)
+  const RATE_STAMP = 0.005;        // อากรแสตมป์ 0.5% (ถือครอง >= 5 ปี)
+  const RATE_MORTGAGE = 0.01;      // ค่าจดจำนอง 1%
+  const SBT_EXEMPT_YEARS = 5;
+
+  function fmt(n){
+    return Number(n||0).toLocaleString('th-TH', {maximumFractionDigits:2});
+  }
+
+  function calc(input){
+    const appraisedTotal = (input.rate||0) * (input.area||0);
+    const saleprice = input.saleprice||0;
+    const baseValue = Math.max(appraisedTotal, saleprice);
+    const heldLong = (input.years||0) >= SBT_EXEMPT_YEARS;
+
+    const transferFee = baseValue * RATE_TRANSFER;
+    const sbt = heldLong ? 0 : baseValue * RATE_SBT;
+    const stampDuty = heldLong ? baseValue * RATE_STAMP : 0;
+    const mortgageFee = (input.mortgage||0) * RATE_MORTGAGE;
+    const brokerFee = saleprice * ((input.brokerRate||0)/100);
+
+    const totalFees = transferFee + sbt + stampDuty + mortgageFee;
+    const total = baseValue + totalFees;
+    const sellerShare = transferFee / 2;
+    const buyerShare = total - sellerShare;
+
+    return {
+      appraisedTotal, saleprice, baseValue, heldLong,
+      transferFee, sbt, stampDuty, mortgageFee, brokerFee,
+      totalFees, total, sellerShare, buyerShare
+    };
+  }
+
+  function row(label, value, opts){
+    opts = opts||{};
+    const cls = ['lt-row'];
+    if(opts.total) cls.push('total');
+    if(opts.sub) cls.push('sub');
+    return `<div class="${cls.join(' ')}"><span>${label}</span><span class="lt-val">${value}</span></div>`;
+  }
+
+  function render(){
+    const rate = parseFloat(document.getElementById('lt-rate').value)||0;
+    const area = parseFloat(document.getElementById('lt-area').value)||0;
+    const saleprice = parseFloat(document.getElementById('lt-saleprice').value)||0;
+    const years = parseFloat(document.getElementById('lt-years').value)||0;
+    const mortgage = parseFloat(document.getElementById('lt-mortgage').value)||0;
+    const brokerRate = parseFloat(document.getElementById('lt-broker-rate').value)||0;
+
+    const r = calc({rate, area, saleprice, years, mortgage, brokerRate});
+    const el = document.getElementById('lt-result');
+
+    let html = '';
+    html += row('ราคาประเมินราชการรวม', fmt(r.appraisedTotal)+' บาท');
+    html += row('ราคาซื้อขาย', fmt(r.saleprice)+' บาท');
+    html += row('ราคาที่ใช้คำนวณ (สูงกว่า)', fmt(r.baseValue)+' บาท');
+    html += row('ค่าธรรมเนียมโอน (2%)', fmt(r.transferFee)+' บาท');
+    if(r.heldLong){
+      html += row('อากรแสตมป์ (0.5%) — ถือครอง ≥ 5 ปี', fmt(r.stampDuty)+' บาท');
+    } else {
+      html += row('ภาษีธุรกิจเฉพาะ (3.3%) — ถือครอง < 5 ปี', fmt(r.sbt)+' บาท');
+    }
+    if(mortgage > 0){
+      html += row('ค่าจดจำนอง (1%)', fmt(r.mortgageFee)+' บาท');
+    }
+    html += row('รวมค่าใช้จ่ายในการโอน', fmt(r.totalFees)+' บาท', {total:true});
+    html += row('ยอดรวมทั้งหมด (ราคา + ค่าใช้จ่าย)', fmt(r.total)+' บาท', {total:true});
+    html += row('ผู้ขายจ่าย (ค่าธรรมเนียมโอนครึ่งหนึ่ง)', fmt(r.sellerShare)+' บาท', {sub:true});
+    html += row('ผู้ซื้อจ่าย (ส่วนที่เหลือทั้งหมด)', fmt(r.buyerShare)+' บาท', {sub:true});
+    if(brokerRate > 0){
+      html += row('ค่านายหน้า ('+brokerRate+'% ของราคาขาย)', fmt(r.brokerFee)+' บาท');
+    }
+
+    el.innerHTML = html;
+  }
+
+  function init(){
+    const ids = ['lt-rate','lt-area','lt-saleprice','lt-years','lt-mortgage','lt-broker-rate'];
+    ids.forEach(id=>{
+      document.getElementById(id).addEventListener('input', render);
+    });
+    render();
+  }
+
+  return { init };
+})();
+</script>
+
+<script>
+/* =========================================================================
+   NAVIGATION MODULE — สลับหน้าระหว่างเมนูหลักและเครื่องมือแต่ละอัน
+   ========================================================================= */
+(function(){
+  const views = {
+    menu: document.getElementById('view-menu'),
+    appraisal: document.getElementById('view-appraisal'),
+    landtax: document.getElementById('view-landtax'),
+  };
+  let landTaxInitialized = false;
+
+  function showView(name){
+    Object.keys(views).forEach(key=>{
+      views[key].style.display = (key===name) ? 'block' : 'none';
+    });
+    if(name==='landtax' && !landTaxInitialized){
+      window.LandTaxApp.init();
+      landTaxInitialized = true;
+    }
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  document.querySelectorAll('[data-view]').forEach(btn=>{
+    btn.addEventListener('click', ()=> showView(btn.dataset.view));
+  });
+  document.querySelectorAll('[data-back]').forEach(btn=>{
+    btn.addEventListener('click', ()=> showView('menu'));
+  });
+
+  window.HomeMetricNav = { showView };
+})();
+</script>
+
+<script>
+/* =========================================================================
    AUTH MODULE — Firebase Authentication (Google Sign-in)
    หน้าที่: จัดการล็อกอิน/ล็อกเอาต์เท่านั้น ไม่ตัดสินใจเรื่องสิทธิ์การใช้งาน
    ========================================================================= */
@@ -710,6 +976,7 @@ const AuthorizationModule = (function(){
       window.PropertyApp.init();
       appInitialized = true;
     }
+    if(window.HomeMetricNav) window.HomeMetricNav.showView('menu');
   }
 
   signinBtn.addEventListener('click', ()=>{
