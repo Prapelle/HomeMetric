@@ -163,6 +163,7 @@
     margin-bottom:14px;
   }
   .field-full{grid-column:1/-1;}
+  .label-nowrap{white-space:nowrap; font-size:10.5px;}
 
   button.primary{
     background:var(--ink);
@@ -498,8 +499,8 @@
     <section>
       <h2 class="sec-title">ข้อมูลทรัพย์และการซื้อขาย</h2>
       <div class="form-grid" id="lt-form-grid">
-        <div class="field-full">
-          <label>ราคาประเมินราชการ (บาท/ตร.วา)</label>
+        <div>
+          <label class="label-nowrap">ราคาประเมินราชการ (บาท/ตร.วา)</label>
           <input type="number" id="lt-rate" min="0" step="100" placeholder="0">
         </div>
         <div>
@@ -525,8 +526,8 @@
         <div>
           <label>อัตราค่าธรรมเนียมโอน</label>
           <select id="lt-fee-mode">
-            <option value="normal">อัตราปกติ 2% ของราคาประเมินทุนทรัพย์</option>
-            <option value="reduced">ลดหย่อนพิเศษ 0.01% (ล้านละ 100 บาท) — บ้าน/คอนโดไม่เกิน 7 ล้านบาท</option>
+            <option value="normal">อัตราปกติ</option>
+            <option value="reduced">อัตราลดหย่อนพิเศษ</option>
           </select>
         </div>
         <div>
@@ -543,7 +544,7 @@
     <section>
       <h2 class="sec-title">สรุปค่าใช้จ่าย</h2>
       <div class="lt-result" id="lt-result"></div>
-      <p class="lt-note">* ภาษีธุรกิจเฉพาะ (3.3%) เก็บเมื่อถือครองไม่ถึง 5 ปี หากถือครองตั้งแต่ 5 ปีขึ้นไป จะเสียอากรแสตมป์ (0.5%) แทน โดยคำนวณจาก "ราคาที่ใช้" ซึ่งคือราคาที่สูงกว่าระหว่างราคาประเมินราชการกับราคาซื้อขาย ค่าจดจำนองและภาษี/อากร ผู้ซื้อเป็นผู้รับผิดชอบตามธรรมเนียมทั่วไป ส่วนค่าธรรมเนียมโอนเลือกผู้รับผิดชอบได้ (สามารถต่อรองเปลี่ยนแปลงได้จริง)</p>
+      <p class="lt-note">* ค่าธรรมเนียมโอน: อัตราปกติ 2% ของราคาประเมินทุนทรัพย์ หรืออัตราลดหย่อนพิเศษ 0.01% (ล้านละ 100 บาท) สำหรับบ้านหรือคอนโดราคาไม่เกิน 7 ล้านบาท (ถ้าเกิน ระบบจะสลับเป็นอัตราปกติให้อัตโนมัติ) ภาษีธุรกิจเฉพาะ (3.3%) เก็บเมื่อถือครองไม่ถึง 5 ปี หากถือครองตั้งแต่ 5 ปีขึ้นไป จะเสียอากรแสตมป์ (0.5%) แทน โดยคำนวณจาก "ราคาที่ใช้" ซึ่งคือราคาที่สูงกว่าระหว่างราคาประเมินราชการกับราคาซื้อขาย ค่าจดจำนองและภาษี/อากร ผู้ซื้อเป็นผู้รับผิดชอบตามธรรมเนียมทั่วไป ส่วนค่าธรรมเนียมโอนเลือกผู้รับผิดชอบได้ (สามารถต่อรองเปลี่ยนแปลงได้จริง)</p>
     </section>
   </div>
 </div>
@@ -802,9 +803,9 @@ window.LandTaxApp = (function(){
     const baseValue = Math.max(appraisedTotal, saleprice);
     const heldLong = (input.years||0) >= SBT_EXEMPT_YEARS;
 
-    const feeRate = (input.feeMode==='reduced') ? RATE_TRANSFER_REDUCED : RATE_TRANSFER_NORMAL;
+    const feeRate = (input.feeMode==='reduced' && baseValue <= REDUCED_FEE_PRICE_CAP) ? RATE_TRANSFER_REDUCED : RATE_TRANSFER_NORMAL;
     const transferFee = baseValue * feeRate;
-    const reducedNotEligible = (input.feeMode==='reduced') && saleprice > REDUCED_FEE_PRICE_CAP;
+    const reducedAutoSwitched = (input.feeMode==='reduced') && baseValue > REDUCED_FEE_PRICE_CAP;
 
     const sbt = heldLong ? 0 : baseValue * RATE_SBT;
     const stampDuty = heldLong ? baseValue * RATE_STAMP : 0;
@@ -828,7 +829,7 @@ window.LandTaxApp = (function(){
 
     return {
       appraisedTotal, saleprice, baseValue, heldLong,
-      feeRate, reducedNotEligible,
+      feeRate, reducedAutoSwitched,
       transferFee, sbt, stampDuty, mortgageFee, brokerFee,
       totalFees, total, sellerShare, buyerShare
     };
@@ -880,8 +881,8 @@ window.LandTaxApp = (function(){
     html += row('ผู้ซื้อจ่าย (ส่วนที่เหลือทั้งหมด)', fmt(r.buyerShare)+' บาท', {sub:true});
     html += row('ค่านายหน้า ('+brokerRate+'% ของราคาขาย)', fmt(r.brokerFee)+' บาท');
 
-    if(r.reducedNotEligible){
-      html += '<div class="lt-row" style="color:var(--stamp-dark); font-weight:600;">⚠ ราคาซื้อขายเกิน 7 ล้านบาท อาจไม่เข้าเงื่อนไขอัตราลดหย่อนพิเศษ</div>';
+    if(r.reducedAutoSwitched){
+      html += '<div class="lt-row" style="color:var(--stamp-dark); font-weight:600;">⚠ ราคาเกิน 7 ล้านบาท ระบบสลับไปใช้อัตราปกติ 2% ให้อัตโนมัติ</div>';
     }
 
     el.innerHTML = html;
