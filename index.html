@@ -546,8 +546,21 @@
       <div class="lt-result" id="lt-result"></div>
       <p class="lt-note">* ค่าธรรมเนียมโอน: อัตราปกติ 2% ของราคาประเมินทุนทรัพย์ หรืออัตราลดหย่อนพิเศษ 0.01% (ล้านละ 100 บาท) สำหรับบ้านหรือคอนโดราคาไม่เกิน 7 ล้านบาท (ถ้าเกิน ระบบจะสลับเป็นอัตราปกติให้อัตโนมัติ) ภาษีธุรกิจเฉพาะ (3.3%) เก็บเมื่อถือครองไม่ถึง 5 ปี หากถือครองตั้งแต่ 5 ปีขึ้นไป จะเสียอากรแสตมป์ (0.5%) แทน โดยคำนวณจาก "ราคาที่ใช้" ซึ่งคือราคาที่สูงกว่าระหว่างราคาประเมินราชการกับราคาซื้อขาย ค่าจดจำนองและภาษี/อากร ผู้ซื้อเป็นผู้รับผิดชอบตามธรรมเนียมทั่วไป ส่วนค่าธรรมเนียมโอนเลือกผู้รับผิดชอบได้ (สามารถต่อรองเปลี่ยนแปลงได้จริง)</p>
     </section>
+
+    <section>
+      <h2 class="sec-title">ตั้งราคาขายจากยอดเงินสุทธิที่ต้องการ</h2>
+      <div class="form-grid" id="lt-target-form-grid">
+        <div>
+          <label>ยอดเงินสุทธิที่ต้องการ (บาท)</label>
+          <input type="number" id="lt-target-net" min="0" step="1000" placeholder="0">
+        </div>
+      </div>
+      <div class="lt-result" id="lt-target-result"></div>
+      <p class="lt-note">* คำนวณราคาขายที่ต้องตั้ง เพื่อให้ผู้ขายได้รับเงินสุทธิตามยอดที่กรอก หลังหักค่าธรรมเนียมโอนส่วนของผู้ขาย (ตามตัวเลือกผู้รับผิดชอบด้านบน) และค่านายหน้า โดยใช้เงื่อนไข ราคาประเมิน/อัตราค่าธรรมเนียม/ระยะเวลาถือครอง เดียวกับที่กรอกไว้ด้านบน</p>
+    </section>
   </div>
 </div>
+
 
 
 <script>
@@ -835,6 +848,31 @@ window.LandTaxApp = (function(){
     };
   }
 
+  function sellerNetFromPrice(saleprice, base){
+    const r = calc(Object.assign({}, base, {saleprice}));
+    return saleprice - r.sellerShare - r.brokerFee;
+  }
+
+  // หาราคาขายที่ทำให้ผู้ขายได้เงินสุทธิตามเป้าหมาย ด้วยวิธี binary search
+  // (สมการไม่เป็นเชิงเส้นตรงเพราะฐานคำนวณค่าธรรมเนียมสลับระหว่างราคาประเมินกับราคาขาย
+  //  และอัตราค่าธรรมเนียมสลับที่ 7 ล้านบาท)
+  function solvePriceForNet(targetNet, base){
+    if(targetNet <= 0) return 0;
+    let lo = 0;
+    let hi = Math.max(targetNet * 2, 10000000);
+    // ขยายขอบเขตบนจนกว่าจะครอบคลุมเป้าหมาย
+    for(let i=0;i<60;i++){
+      if(sellerNetFromPrice(hi, base) >= targetNet) break;
+      hi *= 2;
+    }
+    for(let i=0;i<80;i++){
+      const mid = (lo+hi)/2;
+      const net = sellerNetFromPrice(mid, base);
+      if(net < targetNet) lo = mid; else hi = mid;
+    }
+    return hi;
+  }
+
   function row(label, value, opts){
     opts = opts||{};
     const cls = ['lt-row'];
@@ -886,10 +924,33 @@ window.LandTaxApp = (function(){
     }
 
     el.innerHTML = html;
+    renderTarget({rate, area, years, mortgage, brokerRate, feeMode, feePayer});
+  }
+
+  function renderTarget(base){
+    const el = document.getElementById('lt-target-result');
+    const targetNet = parseFloat(document.getElementById('lt-target-net').value)||0;
+
+    if(targetNet <= 0){
+      el.innerHTML = '';
+      return;
+    }
+
+    const requiredPrice = solvePriceForNet(targetNet, base);
+    const r = calc(Object.assign({}, base, {saleprice: requiredPrice}));
+    const actualNet = requiredPrice - r.sellerShare - r.brokerFee;
+
+    let html = '';
+    html += row('ราคาขายที่ต้องตั้ง', fmt(requiredPrice)+' บาท', {total:true});
+    html += row('หัก ค่าธรรมเนียมโอนส่วนของผู้ขาย', fmt(r.sellerShare)+' บาท', {sub:true});
+    html += row('หัก ค่านายหน้า', fmt(r.brokerFee)+' บาท', {sub:true});
+    html += row('เงินสุทธิที่ผู้ขายจะได้รับ', fmt(actualNet)+' บาท', {total:true});
+
+    el.innerHTML = html;
   }
 
   function init(){
-    const ids = ['lt-rate','lt-area','lt-saleprice','lt-years','lt-mortgage','lt-broker-rate','lt-fee-mode','lt-fee-payer'];
+    const ids = ['lt-rate','lt-area','lt-saleprice','lt-years','lt-mortgage','lt-broker-rate','lt-fee-mode','lt-fee-payer','lt-target-net'];
     ids.forEach(id=>{
       const el = document.getElementById(id);
       el.addEventListener('input', render);
