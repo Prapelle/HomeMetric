@@ -887,22 +887,10 @@ window.LandTaxApp = (function(){
     seller: 'ผู้ขายจ่ายทั้งหมด',
   };
 
-  function render(){
-    const rate = parseFloat(document.getElementById('lt-rate').value)||0;
-    const area = parseFloat(document.getElementById('lt-area').value)||0;
-    const saleprice = parseFloat(document.getElementById('lt-saleprice').value)||0;
-    const years = parseFloat(document.getElementById('lt-years').value)||0;
-    const mortgage = parseFloat(document.getElementById('lt-mortgage').value)||0;
-    const brokerRate = parseFloat(document.getElementById('lt-broker-rate').value)||0;
-    const feeMode = document.getElementById('lt-fee-mode').value;
-    const feePayer = document.getElementById('lt-fee-payer').value;
-
-    const r = calc({rate, area, saleprice, years, mortgage, brokerRate, feeMode, feePayer});
-    const el = document.getElementById('lt-result');
-
+  function buildBreakdownHtml(r, mortgage, brokerRate, feePayer, priceLabel){
     let html = '';
     html += row('ราคาประเมินราชการรวม', fmt(r.appraisedTotal)+' บาท');
-    html += row('ราคาซื้อขาย', fmt(r.saleprice)+' บาท');
+    html += row(priceLabel || 'ราคาซื้อขาย', fmt(r.saleprice)+' บาท');
     html += row('ราคาที่ใช้คำนวณ (สูงกว่า)', fmt(r.baseValue)+' บาท');
     html += row('ค่าธรรมเนียมโอน ('+(r.feeRate*100).toLocaleString('th-TH',{maximumFractionDigits:2})+'%)', fmt(r.transferFee)+' บาท');
     if(r.heldLong){
@@ -918,12 +906,25 @@ window.LandTaxApp = (function(){
     html += row('ผู้ขายจ่าย ('+PAYER_LABEL[feePayer]+')', fmt(r.sellerShare)+' บาท', {sub:true});
     html += row('ผู้ซื้อจ่าย (ส่วนที่เหลือทั้งหมด)', fmt(r.buyerShare)+' บาท', {sub:true});
     html += row('ค่านายหน้า ('+brokerRate+'% ของราคาขาย)', fmt(r.brokerFee)+' บาท');
-
     if(r.reducedAutoSwitched){
       html += '<div class="lt-row" style="color:var(--stamp-dark); font-weight:600;">⚠ ราคาเกิน 7 ล้านบาท ระบบสลับไปใช้อัตราปกติ 2% ให้อัตโนมัติ</div>';
     }
+    return html;
+  }
 
-    el.innerHTML = html;
+  function render(){
+    const rate = parseFloat(document.getElementById('lt-rate').value)||0;
+    const area = parseFloat(document.getElementById('lt-area').value)||0;
+    const saleprice = parseFloat(document.getElementById('lt-saleprice').value)||0;
+    const years = parseFloat(document.getElementById('lt-years').value)||0;
+    const mortgage = parseFloat(document.getElementById('lt-mortgage').value)||0;
+    const brokerRate = parseFloat(document.getElementById('lt-broker-rate').value)||0;
+    const feeMode = document.getElementById('lt-fee-mode').value;
+    const feePayer = document.getElementById('lt-fee-payer').value;
+
+    const r = calc({rate, area, saleprice, years, mortgage, brokerRate, feeMode, feePayer});
+    document.getElementById('lt-result').innerHTML = buildBreakdownHtml(r, mortgage, brokerRate, feePayer);
+
     renderTarget({rate, area, years, mortgage, brokerRate, feeMode, feePayer});
   }
 
@@ -940,10 +941,7 @@ window.LandTaxApp = (function(){
     const r = calc(Object.assign({}, base, {saleprice: requiredPrice}));
     const actualNet = requiredPrice - r.sellerShare - r.brokerFee;
 
-    let html = '';
-    html += row('ราคาขายที่ต้องตั้ง', fmt(requiredPrice)+' บาท', {total:true});
-    html += row('หัก ค่าธรรมเนียมโอนส่วนของผู้ขาย', fmt(r.sellerShare)+' บาท', {sub:true});
-    html += row('หัก ค่านายหน้า', fmt(r.brokerFee)+' บาท', {sub:true});
+    let html = buildBreakdownHtml(r, base.mortgage, base.brokerRate, base.feePayer, 'ราคาขายที่ต้องตั้ง');
     html += row('เงินสุทธิที่ผู้ขายจะได้รับ', fmt(actualNet)+' บาท', {total:true});
 
     el.innerHTML = html;
