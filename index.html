@@ -1051,6 +1051,11 @@ window.NetPriceApp = (function(){
     landtax: document.getElementById('view-landtax'),
     netprice: document.getElementById('view-netprice'),
   };
+  const FEATURE_LABELS = {
+    appraisal: 'ประเมินราคาทรัพย์',
+    landtax: 'คำนวณภาษีที่ดิน',
+    netprice: 'ตั้งราคาขายจากยอดสุทธิที่ต้องการ',
+  };
   let landTaxInitialized = false;
   let netPriceInitialized = false;
 
@@ -1065,6 +1070,9 @@ window.NetPriceApp = (function(){
     if(name==='netprice' && !netPriceInitialized){
       window.NetPriceApp.init();
       netPriceInitialized = true;
+    }
+    if(FEATURE_LABELS[name] && window.currentUserEmail && window.AuthorizationModule){
+      window.AuthorizationModule.logUsage(window.currentUserEmail, FEATURE_LABELS[name]);
     }
     window.scrollTo({top:0, behavior:'smooth'});
   }
@@ -1131,8 +1139,18 @@ const AuthorizationModule = (function(){
     return !!data.authorized;
   }
 
-  return { checkAccess };
+  function logUsage(email, feature){
+    const url = APPS_SCRIPT_URL
+      + "?action=logUsage"
+      + "&email=" + encodeURIComponent(email)
+      + "&feature=" + encodeURIComponent(feature);
+    // fire-and-forget: ไม่บล็อก UI และไม่ต้องรอผล ถ้าพลาดก็แค่ไม่นับครั้งนี้
+    fetch(url, { method: "GET" }).catch(()=>{ /* เงียบไว้ ไม่กระทบการใช้งานจริง */ });
+  }
+
+  return { checkAccess, logUsage };
 })();
+window.AuthorizationModule = AuthorizationModule;
 
 /* =========================================================================
    APP BOOTSTRAP — เชื่อม Auth + Authorization เข้ากับ UI
@@ -1160,6 +1178,7 @@ const AuthorizationModule = (function(){
     loginScreen.style.display = 'none';
     appContent.style.display = 'block';
     userEmailEl.textContent = email;
+    window.currentUserEmail = email;
     if(!appInitialized){
       window.PropertyApp.init();
       appInitialized = true;
