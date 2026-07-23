@@ -716,6 +716,11 @@ window.PropertyApp = (function(){
     });
     ['f-name','f-sqm','f-wah','f-price','f-age','f-landrate','f-reno'].forEach(id=>document.getElementById(id).value='');
     renderCards();
+
+    // นับการใช้งานเฉพาะตอนกรอกตัวเลขแล้วเพิ่มทรัพย์จริง ไม่ใช่แค่เปิดหน้า
+    if(window.currentUserEmail && window.AuthorizationModule){
+      window.AuthorizationModule.logUsage(window.currentUserEmail, 'ประเมินราคาทรัพย์');
+    }
   });
 
   // ---- calculations ----
@@ -840,7 +845,16 @@ window.PropertyApp = (function(){
     renderCards();
   }
 
-  return { init };
+  function reset(){
+    items = [];
+    ['f-name','f-sqm','f-wah','f-price','f-age','f-landrate','f-reno'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.value = '';
+    });
+    renderCards();
+  }
+
+  return { init, reset };
 })();
 </script>
 
@@ -965,6 +979,8 @@ window.LandTaxApp = (function(){
     return html;
   }
 
+  let hasLogged = false;
+
   function render(){
     const rate = parseFloat(document.getElementById('lt-rate').value)||0;
     const area = parseFloat(document.getElementById('lt-area').value)||0;
@@ -977,6 +993,12 @@ window.LandTaxApp = (function(){
 
     const r = calc({rate, area, saleprice, years, mortgage, brokerRate, feeMode, feePayer});
     document.getElementById('lt-result').innerHTML = buildBreakdownHtml(r, mortgage, brokerRate, feePayer);
+
+    // นับการใช้งานครั้งแรกที่มีการกรอกตัวเลขจริงจนคำนวณได้ผลลัพธ์ ไม่ใช่แค่เปิดหน้า
+    if(!hasLogged && r.baseValue > 0 && window.currentUserEmail && window.AuthorizationModule){
+      window.AuthorizationModule.logUsage(window.currentUserEmail, 'คำนวณภาษีที่ดิน');
+      hasLogged = true;
+    }
   }
 
   function init(){
@@ -989,7 +1011,20 @@ window.LandTaxApp = (function(){
     render();
   }
 
-  return { init, calc, row, fmt, buildBreakdownHtml, solvePriceForNet, sellerNetFromPrice, PAYER_LABEL };
+  function reset(){
+    document.getElementById('lt-rate').value = '';
+    document.getElementById('lt-area').value = '';
+    document.getElementById('lt-saleprice').value = '';
+    document.getElementById('lt-years').value = '';
+    document.getElementById('lt-mortgage').value = '';
+    document.getElementById('lt-broker-rate').value = '3';
+    document.getElementById('lt-fee-mode').value = 'normal';
+    document.getElementById('lt-fee-payer').value = 'split';
+    document.getElementById('lt-result').innerHTML = '';
+    hasLogged = false;
+  }
+
+  return { init, reset, calc, row, fmt, buildBreakdownHtml, solvePriceForNet, sellerNetFromPrice, PAYER_LABEL };
 })();
 </script>
 
@@ -999,6 +1034,8 @@ window.LandTaxApp = (function(){
    ใช้ตรรกะการคำนวณชุดเดียวกับ LandTaxApp (คำนวณภาษีที่ดิน) ผ่านฟังก์ชันที่ export ไว้
    ========================================================================= */
 window.NetPriceApp = (function(){
+  let hasLogged = false;
+
   function render(){
     const T = window.LandTaxApp;
     const rate = parseFloat(document.getElementById('np-rate').value)||0;
@@ -1024,6 +1061,23 @@ window.NetPriceApp = (function(){
     let html = T.buildBreakdownHtml(r, mortgage, brokerRate, feePayer, 'ราคาขายที่ต้องตั้ง');
     html += T.row('เงินสุทธิที่ผู้ขายจะได้รับ', T.fmt(actualNet)+' บาท', {total:true});
     el.innerHTML = html;
+
+    // นับการใช้งานครั้งแรกที่กรอกยอดเงินสุทธิจริง ไม่ใช่แค่เปิดหน้า
+    if(!hasLogged && window.currentUserEmail && window.AuthorizationModule){
+      window.AuthorizationModule.logUsage(window.currentUserEmail, 'ตั้งราคาขายจากยอดสุทธิที่ต้องการ');
+      hasLogged = true;
+    }
+  }
+
+  function reset(){
+    ['np-rate','np-area','np-years','np-mortgage','np-target-net'].forEach(id=>{
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('np-broker-rate').value = '3';
+    document.getElementById('np-fee-mode').value = 'normal';
+    document.getElementById('np-fee-payer').value = 'split';
+    document.getElementById('np-result').innerHTML = '';
+    hasLogged = false;
   }
 
   function init(){
@@ -1036,7 +1090,7 @@ window.NetPriceApp = (function(){
     render();
   }
 
-  return { init };
+  return { init, reset };
 })();
 </script>
 
@@ -1051,15 +1105,22 @@ window.NetPriceApp = (function(){
     landtax: document.getElementById('view-landtax'),
     netprice: document.getElementById('view-netprice'),
   };
-  const FEATURE_LABELS = {
-    appraisal: 'ประเมินราคาทรัพย์',
-    landtax: 'คำนวณภาษีที่ดิน',
-    netprice: 'ตั้งราคาขายจากยอดสุทธิที่ต้องการ',
+  const RESETTABLE_APPS = {
+    appraisal: () => window.PropertyApp,
+    landtax: () => window.LandTaxApp,
+    netprice: () => window.NetPriceApp,
   };
   let landTaxInitialized = false;
   let netPriceInitialized = false;
+  let currentView = 'menu';
 
   function showView(name){
+    // รีเซ็ตข้อมูลของหน้าที่กำลังจะออกจาก ทุกครั้งที่สลับหน้า
+    if(currentView !== name && RESETTABLE_APPS[currentView]){
+      const app = RESETTABLE_APPS[currentView]();
+      if(app && app.reset) app.reset();
+    }
+
     Object.keys(views).forEach(key=>{
       views[key].style.display = (key===name) ? 'block' : 'none';
     });
@@ -1071,9 +1132,7 @@ window.NetPriceApp = (function(){
       window.NetPriceApp.init();
       netPriceInitialized = true;
     }
-    if(FEATURE_LABELS[name] && window.currentUserEmail && window.AuthorizationModule){
-      window.AuthorizationModule.logUsage(window.currentUserEmail, FEATURE_LABELS[name]);
-    }
+    currentView = name;
     window.scrollTo({top:0, behavior:'smooth'});
   }
 
