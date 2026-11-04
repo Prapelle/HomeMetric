@@ -426,6 +426,10 @@
           <span class="menu-card-title">ตั้งราคาขายจากยอดสุทธิที่ต้องการ</span>
           <span class="menu-card-desc">กรอกยอดเงินสุทธิที่ผู้ขายต้องการได้รับ แล้วคำนวณราคาขายที่ต้องตั้งย้อนกลับให้</span>
         </button>
+        <button class="menu-card" type="button" data-view="commission">
+          <span class="menu-card-title">คำนวณ %commission</span>
+          <span class="menu-card-desc">แบ่งค่าคอมมิชชั่นตามสัญญามือ 1 หรือมือ 2 แยกตามบทบาท บ้านพร้อม แนะนำทรัพย์ ดูแลทรัพย์ ปิดลูกค้า และ Promotion</span>
+        </button>
       </div>
     </section>
   </div>
@@ -614,6 +618,48 @@
       <h2 class="sec-title">ผลลัพธ์</h2>
       <div class="lt-result" id="np-result"></div>
       <p class="lt-note">* คำนวณราคาขายที่ต้องตั้ง เพื่อให้ผู้ขายได้รับเงินสุทธิตามยอดที่กรอก หลังหักค่าธรรมเนียมโอนส่วนของผู้ขาย (ตามตัวเลือกผู้รับผิดชอบ) และค่านายหน้า ใช้เงื่อนไขการคำนวณชุดเดียวกับหน้าคำนวณภาษีที่ดิน</p>
+    </section>
+  </div>
+
+  <div id="view-commission" class="view" style="display:none;">
+    <button class="back-btn" type="button" data-back>← กลับเมนูหลัก</button>
+    <div class="deed-header">
+      <span class="corner-bl"></span><span class="corner-br"></span>
+      <h1 class="deed-title">คำนวณ %commission</h1>
+      <p class="deed-sub">แบ่งค่าคอมมิชชั่นตามประเภทสัญญา แยกตามบทบาทของแต่ละคน</p>
+    </div>
+
+    <section>
+      <h2 class="sec-title">ข้อมูลการขาย</h2>
+      <div class="form-grid" id="cm-form-grid">
+        <div>
+          <label>ประเภทสัญญา <span class="req">*</span></label>
+          <select id="cm-contract-type">
+            <option value="mue1">สัญญามือ 1 (บ้านใหม่)</option>
+            <option value="mue2">สัญญามือ 2 (บ้านมือสอง)</option>
+          </select>
+        </div>
+        <div>
+          <label>ราคาบ้าน (บาท) <span class="req">*</span></label>
+          <input type="number" id="cm-price" min="0" step="1000" placeholder="0">
+        </div>
+        <div>
+          <label>% ค่าคอมมิชชั่นรวม (ของราคาบ้าน) <span class="req">*</span></label>
+          <input type="number" id="cm-rate" min="0" step="0.1" value="3">
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="sec-title">แบ่งตามบทบาท (% ของค่าคอมมิชชั่นรวม)</h2>
+      <div class="form-grid" id="cm-roles-grid"></div>
+      <p class="lt-note" id="cm-roles-warning"></p>
+    </section>
+
+    <section>
+      <h2 class="sec-title">ผลลัพธ์</h2>
+      <div class="lt-result" id="cm-result"></div>
+      <p class="lt-note">* ค่าคอมมิชชั่นรวม = % ค่าคอมมิชชั่น × ราคาบ้าน จากนั้นแบ่งตามสัดส่วน % ของแต่ละบทบาท ค่าเริ่มต้นอ้างอิงจากสูตรที่ใช้งานจริง แก้ไข % แต่ละบทบาทได้ตามข้อตกลงจริง (ระบบจะเตือนถ้ารวมกันไม่ครบ 100%)</p>
     </section>
   </div>
 </div>
@@ -1100,6 +1146,127 @@ window.NetPriceApp = (function(){
 
 <script>
 /* =========================================================================
+   COMMISSION APP — แบ่งค่าคอมมิชชั่นตามประเภทสัญญา
+   ========================================================================= */
+window.CommissionApp = (function(){
+  let hasLogged = false;
+
+  const ROLE_SETS = {
+    mue1: [
+      {key:'baanprom', label:'บ้านพร้อม', pct:25},
+      {key:'care',     label:'ดูแลทรัพย์', pct:35},
+      {key:'close',    label:'ปิดลูกค้า', pct:30},
+      {key:'promotion',label:'Promotion', pct:10},
+    ],
+    mue2: [
+      {key:'baanprom', label:'บ้านพร้อม', pct:20},
+      {key:'suggest',  label:'แนะนำทรัพย์', pct:10},
+      {key:'care',     label:'ดูแลทรัพย์', pct:30},
+      {key:'close',    label:'ปิดลูกค้า', pct:40},
+    ],
+  };
+
+  function fmt(n){
+    return Number(n||0).toLocaleString('th-TH', {maximumFractionDigits: 2});
+  }
+
+  function row(label, value, opts){
+    opts = opts || {};
+    const cls = 'lt-row' + (opts.total ? ' total' : '') + (opts.sub ? ' sub' : '');
+    return '<div class="'+cls+'"><span>'+label+'</span><span>'+value+'</span></div>';
+  }
+
+  function currentRoleSet(){
+    const type = document.getElementById('cm-contract-type').value;
+    return ROLE_SETS[type] || ROLE_SETS.mue1;
+  }
+
+  function renderRoleInputs(){
+    const grid = document.getElementById('cm-roles-grid');
+    const roles = currentRoleSet();
+    grid.innerHTML = roles.map(r=>{
+      return '<div><label>'+r.label+' (%) <span class="req">*</span></label>'
+        + '<input type="number" class="cm-role-input" data-key="'+r.key+'" min="0" step="0.1" value="'+r.pct+'"></div>';
+    }).join('');
+    grid.querySelectorAll('.cm-role-input').forEach(el=>{
+      el.addEventListener('input', render);
+    });
+  }
+
+  function render(){
+    const price = parseFloat(document.getElementById('cm-price').value)||0;
+    const rate = parseFloat(document.getElementById('cm-rate').value)||0;
+    const roles = currentRoleSet();
+    const roleInputs = Array.from(document.querySelectorAll('.cm-role-input'));
+    const warningEl = document.getElementById('cm-roles-warning');
+    const el = document.getElementById('cm-result');
+
+    const roleValues = roleInputs.map(inp=>({
+      key: inp.dataset.key,
+      pct: parseFloat(inp.value)||0,
+    }));
+    const pctSum = roleValues.reduce((s,r)=>s+r.pct, 0);
+
+    if(Math.abs(pctSum - 100) > 0.01){
+      warningEl.textContent = '* รวม % ของบทบาททั้งหมดเท่ากับ '+fmt(pctSum)+'% (ควรรวมให้ครบ 100%)';
+    } else {
+      warningEl.textContent = '';
+    }
+
+    if(price <= 0){
+      el.innerHTML = '';
+      return;
+    }
+
+    const totalCommission = price * (rate/100);
+    let html = '';
+    html += row('ราคาบ้าน', fmt(price)+' บาท');
+    html += row('ค่าคอมมิชชั่นรวม ('+fmt(rate)+'%)', fmt(totalCommission)+' บาท', {total:true});
+
+    roles.forEach(r=>{
+      const rv = roleValues.find(v=>v.key===r.key);
+      const pct = rv ? rv.pct : r.pct;
+      const amount = totalCommission * (pct/100);
+      html += row(r.label+' ('+fmt(pct)+'%)', fmt(amount)+' บาท', {sub:true});
+    });
+
+    el.innerHTML = html;
+
+    if(!hasLogged && window.currentUserEmail && window.AuthorizationModule){
+      window.AuthorizationModule.logUsage(window.currentUserEmail, 'คำนวณ %commission');
+      hasLogged = true;
+    }
+  }
+
+  function reset(){
+    document.getElementById('cm-contract-type').value = 'mue1';
+    document.getElementById('cm-price').value = '';
+    document.getElementById('cm-rate').value = '3';
+    renderRoleInputs();
+    document.getElementById('cm-result').innerHTML = '';
+    document.getElementById('cm-roles-warning').textContent = '';
+    hasLogged = false;
+  }
+
+  function init(){
+    renderRoleInputs();
+    document.getElementById('cm-contract-type').addEventListener('change', function(){
+      renderRoleInputs();
+      render();
+    });
+    ['cm-price','cm-rate'].forEach(id=>{
+      const el = document.getElementById(id);
+      el.addEventListener('input', render);
+    });
+    render();
+  }
+
+  return { init, reset };
+})();
+</script>
+
+<script>
+/* =========================================================================
    NAVIGATION MODULE — สลับหน้าระหว่างเมนูหลักและเครื่องมือแต่ละอัน
    ========================================================================= */
 (function(){
@@ -1108,14 +1275,17 @@ window.NetPriceApp = (function(){
     appraisal: document.getElementById('view-appraisal'),
     landtax: document.getElementById('view-landtax'),
     netprice: document.getElementById('view-netprice'),
+    commission: document.getElementById('view-commission'),
   };
   const RESETTABLE_APPS = {
     appraisal: () => window.PropertyApp,
     landtax: () => window.LandTaxApp,
     netprice: () => window.NetPriceApp,
+    commission: () => window.CommissionApp,
   };
   let landTaxInitialized = false;
   let netPriceInitialized = false;
+  let commissionInitialized = false;
   let currentView = 'menu';
 
   function showView(name){
@@ -1135,6 +1305,10 @@ window.NetPriceApp = (function(){
     if(name==='netprice' && !netPriceInitialized){
       window.NetPriceApp.init();
       netPriceInitialized = true;
+    }
+    if(name==='commission' && !commissionInitialized){
+      window.CommissionApp.init();
+      commissionInitialized = true;
     }
     currentView = name;
     window.scrollTo({top:0, behavior:'smooth'});
